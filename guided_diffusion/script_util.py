@@ -61,7 +61,7 @@ def model_and_diffusion_defaults():
         use_fp16=False,
         use_new_attention_order=False,
     )
-    res.update(diffusion_defaults())
+    res |= diffusion_defaults()
     return res
 
 
@@ -159,15 +159,14 @@ def create_model(
     else:
         channel_mult = tuple(int(ch_mult) for ch_mult in channel_mult.split(","))
 
-    attention_ds = []
-    for res in attention_resolutions.split(","):
-        attention_ds.append(image_size // int(res))
-
+    attention_ds = [
+        image_size // int(res) for res in attention_resolutions.split(",")
+    ]
     return UNetModel(
         image_size=image_size,
         in_channels=3,
         model_channels=num_channels,
-        out_channels=(3 if not learn_sigma else 6),
+        out_channels=6 if learn_sigma else 3,
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
@@ -246,10 +245,10 @@ def create_classifier(
     else:
         raise ValueError(f"unsupported image size: {image_size}")
 
-    attention_ds = []
-    for res in classifier_attention_resolutions.split(","):
-        attention_ds.append(image_size // int(res))
-
+    attention_ds = [
+        image_size // int(res)
+        for res in classifier_attention_resolutions.split(",")
+    ]
     return EncoderUNetModel(
         image_size=image_size,
         in_channels=3,
@@ -350,24 +349,21 @@ def sr_create_model(
 ):
     _ = small_size  # hack to prevent unused variable
 
-    if large_size == 512:
-        channel_mult = (1, 1, 2, 2, 4, 4)
-    elif large_size == 256:
+    if large_size in [512, 256]:
         channel_mult = (1, 1, 2, 2, 4, 4)
     elif large_size == 64:
         channel_mult = (1, 2, 3, 4)
     else:
         raise ValueError(f"unsupported large size: {large_size}")
 
-    attention_ds = []
-    for res in attention_resolutions.split(","):
-        attention_ds.append(large_size // int(res))
-
+    attention_ds = [
+        large_size // int(res) for res in attention_resolutions.split(",")
+    ]
     return SuperResModel(
         image_size=large_size,
         in_channels=3,
         model_channels=num_channels,
-        out_channels=(3 if not learn_sigma else 6),
+        out_channels=6 if learn_sigma else 3,
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
@@ -407,18 +403,16 @@ def create_gaussian_diffusion(
     return SpacedDiffusion(
         use_timesteps=space_timesteps(steps, timestep_respacing),
         betas=betas,
-        model_mean_type=(
-            gd.ModelMeanType.EPSILON if not predict_xstart else gd.ModelMeanType.START_X
-        ),
+        model_mean_type=gd.ModelMeanType.START_X
+        if predict_xstart
+        else gd.ModelMeanType.EPSILON,
         model_var_type=(
-            (
-                gd.ModelVarType.FIXED_LARGE
-                if not sigma_small
-                else gd.ModelVarType.FIXED_SMALL
-            )
-            if not learn_sigma
-            else gd.ModelVarType.LEARNED_RANGE
-        ),
+            gd.ModelVarType.FIXED_SMALL
+            if sigma_small
+            else gd.ModelVarType.FIXED_LARGE
+        )
+        if not learn_sigma
+        else gd.ModelVarType.LEARNED_RANGE,
         loss_type=loss_type,
         rescale_timesteps=rescale_timesteps,
     )

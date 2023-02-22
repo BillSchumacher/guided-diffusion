@@ -74,7 +74,9 @@ def main():
         )
         model_kwargs["y"] = classes
         sample_fn = (
-            diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
+            diffusion.ddim_sample_loop
+            if args.use_ddim
+            else diffusion.p_sample_loop
         )
         sample = sample_fn(
             model_fn,
@@ -120,7 +122,7 @@ def create_argparser():
         classifier_path="",
         classifier_scale=1.0,
     )
-    defaults.update(model_and_diffusion_defaults())
+    defaults |= model_and_diffusion_defaults()
     defaults.update(classifier_defaults())
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)

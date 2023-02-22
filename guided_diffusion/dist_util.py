@@ -27,7 +27,7 @@ def setup_dist():
     os.environ["CUDA_VISIBLE_DEVICES"] = f"{MPI.COMM_WORLD.Get_rank() % GPUS_PER_NODE}"
 
     comm = MPI.COMM_WORLD
-    backend = "gloo" if not th.cuda.is_available() else "nccl"
+    backend = "nccl" if th.cuda.is_available() else "gloo"
 
     if backend == "gloo":
         hostname = "localhost"
@@ -46,9 +46,7 @@ def dev():
     """
     Get the device to use for torch.distributed.
     """
-    if th.cuda.is_available():
-        return th.device(f"cuda")
-    return th.device("cpu")
+    return th.device("cuda") if th.cuda.is_available() else th.device("cpu")
 
 
 def load_state_dict(path, **kwargs):
